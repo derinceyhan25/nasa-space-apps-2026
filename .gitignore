@@ -1,4 +1,4 @@
-# Byte-compiled / optimized / DLL files
+﻿# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
 *$py.class
@@ -165,7 +165,7 @@ venv.bak/
 .ropeproject
 
 # mkdocs documentation
-/site
+# /site  (disabled: our static website lives in site/)
 
 # mypy
 .mypy_cache/
@@ -218,3 +218,10 @@ __marimo__/
 .streamlit/secrets.toml
 
 backend/cache/
+
+backend/cache/
+backend/worldgrid/
+backend/ne/
+__pycache__/
+*.pyc
+.env

@@ -1,9 +1,11 @@
 ﻿"""
-Fetch long date ranges from FIRMS by splitting them into chunks.
-Each chunk is cached on disk so it is only downloaded once.
+Fetch long date ranges from FIRMS in 5-day chunks aligned to a fixed global
+grid (origin 2000-01-01), so a cached chunk is reused by any later request.
+Rows are filtered to [start, end] at the end.
 """
 import hashlib
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -12,37 +14,54 @@ import pandas as pd
 from app.firms_client import fetch_hotspots
 
 CACHE_DIR = Path(__file__).resolve().parent.parent / "cache"
-CHUNK_DAYS = 5  # FIRMS Area API allows 1-5 days per request (10 returns 400)
+CHUNK_DAYS = 5
+GRID_ORIGIN = date(2000, 1, 1)
+NOT_FINAL_DAYS = 150  # recent standard data may be missing: do not cache
 
 
-def _cache_path(source, bbox, start, n_days):
-    key = f"{source}|{bbox}|{start}|{n_days}"
-    h = hashlib.md5(key.encode()).hexdigest()[:12]
-    return CACHE_DIR / f"{source}_{start}_{n_days}d_{h}.csv"
+def _chunk_starts(start, end):
+    d0, d1 = date.fromisoformat(start), date.fromisoformat(end)
+    offset = (d0 - GRID_ORIGIN).days // CHUNK_DAYS * CHUNK_DAYS
+    s = GRID_ORIGIN + timedelta(days=offset)
+    while s <= d1:
+        yield s
+        s += timedelta(days=CHUNK_DAYS)
 
 
-def fetch_range(bbox, source, start, end, chunk_days=CHUNK_DAYS, pause=0.2):
-    """Fetch hotspots for bbox between start and end (YYYY-MM-DD, inclusive)."""
-    CACHE_DIR.mkdir(exist_ok=True)
-    frames = []
-    d = date.fromisoformat(start)
-    last = date.fromisoformat(end)
+def _cache_path(source, bbox, s):
+    h = hashlib.md5(f"{source}|{bbox}".encode()).hexdigest()[:8]
+    return CACHE_DIR / f"{source}_{h}" / f"{s.isoformat()}.csv"
 
-    while d <= last:
-        n = min(chunk_days, (last - d).days + 1)
-        path = _cache_path(source, bbox, d.isoformat(), n)
 
-        if path.exists():
-            df = pd.read_csv(path)
-        else:
-            df = fetch_hotspots(bbox, source=source, day_range=n, start_date=d.isoformat())
-            df.to_csv(path, index=False)
-            time.sleep(pause)
+def get_chunk(bbox, source, s, retries=4):
+    """One 5-day chunk: from disk if cached, else download (with retries)."""
+    path = _cache_path(source, bbox, s)
+    if path.exists():
+        return pd.read_csv(path)
+    for attempt in range(retries):
+        try:
+            df = fetch_hotspots(
+                bbox, source=source, day_range=CHUNK_DAYS, start_date=s.isoformat()
+            )
+            break
+        except Exception:
+            if attempt == retries - 1:
+                raise
+            time.sleep(2 ** attempt)
+    chunk_end = s + timedelta(days=CHUNK_DAYS)
+    if chunk_end < date.today() - timedelta(days=NOT_FINAL_DAYS):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(path, index=False)
+    return df
 
-        if len(df) > 0:
-            frames.append(df)
-        d += timedelta(days=n)
 
+def fetch_range(bbox, source, start, end, workers=1):
+    """All hotspots for bbox between start and end (YYYY-MM-DD, inclusive)."""
+    starts = list(_chunk_starts(start, end))
+    with ThreadPoolExecutor(workers) as ex:
+        frames = list(ex.map(lambda s: get_chunk(bbox, source, s), starts))
+    frames = [f for f in frames if len(f) > 0]
     if not frames:
         return pd.DataFrame()
-    return pd.concat(frames, ignore_index=True)
+    df = pd.concat(frames, ignore_index=True)
+    return df[(df.acq_date >= start) & (df.acq_date <= end)]

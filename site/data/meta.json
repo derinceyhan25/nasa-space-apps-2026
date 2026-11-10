@@ -1,0 +1,1 @@
+{"built":"2026-11-10T14:16+00:00","ranges":{"MODIS_SP":["2000-11-11","2026-08-31"],"VIIRS_SNPP_SP":["2012-01-20","2026-07-31"],"MODIS_NRT":["2026-09-01","2026-11-08"],"VIIRS_SNPP_NRT":["2026-08-01","2026-11-02"]},"months":["2000-12","2026-10"],"overlap_months":84,"world_ratio":4.545,"grid_deg":1,"tile":10,"regions_source":"Natural Earth 1:10m (public domain)"}

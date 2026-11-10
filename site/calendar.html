@@ -1,0 +1,325 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fire Calendar</title>
+<style>
+:root{
+  --bg:#fbfaf8; --surface:#ffffff; --ink:#1d1b19; --muted:#6b665f; --line:#e4e0d9;
+  --accent:#c2410c; --empty:#eeebe5; --focus:#1d4ed8;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#141210; --surface:#1d1a17; --ink:#f1ede6; --muted:#a39d93; --line:#34302b;
+        --accent:#fb923c; --empty:#2a2622; --focus:#93c5fd;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1020px;margin:0 auto;padding:28px 16px 64px}
+h1{font-size:26px;margin:0 0 4px;letter-spacing:-.01em}
+.lead{color:var(--muted);margin:0 0 20px;max-width:62ch}
+form{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+input[type=search]{flex:1 1 260px;min-width:0;padding:10px 12px;font:inherit;color:var(--ink);
+  background:var(--surface);border:1px solid var(--line);border-radius:8px}
+button{font:inherit;cursor:pointer;color:var(--ink);background:var(--surface);
+  border:1px solid var(--line);border-radius:8px;padding:9px 14px}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+button:hover{filter:brightness(.97)}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:22px}
+.chips button{padding:4px 10px;font-size:13px;border-radius:999px;color:var(--muted)}
+#status{min-height:1.5em;margin:0 0 14px;color:var(--muted)}
+#status.err{color:#b91c1c} @media (prefers-color-scheme:dark){#status.err{color:#fca5a5}}
+.place{font-weight:600;color:var(--ink)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:22px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.tile .k{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.tile .v{font-size:22px;font-weight:650;margin:2px 0}
+.tile .s{font-size:13px;color:var(--muted)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px}
+.bar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:7px 12px;background:transparent}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+.scroll{overflow-x:auto}
+svg{display:block;width:100%;min-width:640px;height:auto}
+svg text{font-family:inherit;fill:var(--muted)}
+.cell{cursor:pointer}
+.cell:hover rect.base,.cell.sel rect.base{stroke:var(--ink);stroke-width:2}
+.legend{display:flex;align-items:center;gap:10px;margin:14px 0 0;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.ramp{height:12px;width:200px;border-radius:3px;border:1px solid var(--line)}
+.key{display:inline-flex;align-items:center;gap:6px}
+.key i{width:16px;height:16px;border-radius:3px;display:inline-block;border:1px solid var(--line);background:var(--empty)}
+#tip{position:fixed;z-index:10;pointer-events:none;background:var(--ink);color:var(--bg);
+  border-radius:8px;padding:8px 10px;font-size:13px;max-width:260px;opacity:0;transition:opacity .08s}
+#tip b{display:block;font-size:14px;margin-bottom:2px}
+#detail{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);font-size:14px;min-height:2.6em}
+#detail a{color:var(--accent);font-weight:600}
+.notes{margin-top:22px;color:var(--muted);font-size:13.5px}
+.notes li{margin:4px 0}
+.sr{position:absolute;left:-9999px}
+</style>
+</head>
+<body>
+<main>
+  <p style="margin:0 0 8px"><a href="./" style="color:var(--accent);text-decoration:none">&#x2190; Back to the globe</a></p>
+  <h1>Burning-activity calendar</h1>
+  <p class="lead">Satellite fire detections (MODIS and VIIRS, harmonized into one record) for any place on Earth, month by month since 2000.
+    Search a city, a country, or coordinates.</p>
+
+  <form id="f" role="search">
+    <input id="q" type="search" placeholder="City, country, or lat,lon (e.g. 38.4, 27.1)" aria-label="Place to search" autocomplete="off" list="dl">
+    <datalist id="dl"></datalist>
+    <button class="primary" type="submit">Show calendar</button>
+  </form>
+  <div class="chips" aria-label="Examples">
+    <button type="button" data-q="California">California</button>
+    <button type="button" data-q="T&#xfc;rkiye">T&#xfc;rkiye</button>
+    <button type="button" data-q="Amazonas, Brazil">Amazonas</button>
+    <button type="button" data-q="Victoria, Australia">Victoria, Australia</button>
+    <button type="button" data-q="Portugal">Portugal</button>
+    <button type="button" data-q="-3.4, 104.2">Sumatra (lat,lon)</button>
+  </div>
+
+  <p id="status" role="status" aria-live="polite"></p>
+
+  <section id="out" hidden>
+    <div class="tiles" id="tiles"></div>
+    <div class="panel">
+      <div class="bar">
+        <div class="seg" role="group" aria-label="Color by">
+          <button type="button" id="m-count" aria-pressed="true">Hotspot count</button>
+          <button type="button" id="m-ratio" aria-pressed="false">Compared with usual</button>
+        </div>
+        <button type="button" id="csv">Download calendar (CSV)</button>
+      </div>
+      <div class="scroll"><svg id="hm" role="img" aria-labelledby="hm-t"><title id="hm-t">Calendar heatmap</title></svg></div>
+      <div class="legend" id="legend"></div>
+      <div id="detail">Click a month to see its details.</div>
+    </div>
+    <ul class="notes" id="notes"></ul>
+  </section>
+  <div id="tip" role="tooltip"></div>
+</main>
+
+<script src="js/data.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const FULL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const VIRIDIS = ["#440154","#472d7b","#3b528b","#2c728e","#21918c","#28ae80","#5ec962","#addc30","#fde725"];
+const PUOR = ["#2d004b","#542788","#8073ac","#b2abd2","#d8daeb","#f7f7f7","#fee0b6","#fdb863","#e08214","#b35806","#7f3b08"];
+const ANOMALY = 1.5;
+
+let DATA = null, MODE = "count", SEL = null;
+
+const hex = h => [1,3,5].map(i => parseInt(h.slice(i, i+2), 16));
+function ramp(stops, t){
+  t = Math.max(0, Math.min(1, t));
+  const x = t * (stops.length - 1), i = Math.min(Math.floor(x), stops.length - 2), f = x - i;
+  const a = hex(stops[i]), b = hex(stops[i+1]);
+  return a.map((v, k) => Math.round(v + (b[k] - v) * f));
+}
+const css = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+const lum = c => (0.2126*c[0] + 0.7152*c[1] + 0.0722*c[2]) / 255;
+const fmt = n => Math.round(n).toLocaleString("en-US");
+const short = n => n >= 100000 ? Math.round(n/1000)+"k" : n >= 1000 ? (n/1000).toFixed(1)+"k" : String(Math.round(n));
+const fx = r => r >= 10 ? Math.round(r)+"\u00d7" : r.toFixed(1)+"\u00d7";
+const mName = m => `${FULL[+m.slice(5)-1]} ${m.slice(0,4)}`;
+
+function setStatus(msg, err){ const s = $("#status"); s.textContent = msg; s.className = err ? "err" : ""; }
+
+
+async function search(q){
+  q = q.trim(); if (!q) return;
+  $("#q").value = q;
+  setStatus("Searching\u2026");
+  try {
+    const g = await FC.find(q);
+    setStatus("Loading the calendar\u2026");
+    const cal = await FC.calendar(g);
+    DATA = { ...cal, place: g.name, bbox: g.bbox, sub: g.sub };
+    SEL = null;
+    history.replaceState(null, "", "?q=" + encodeURIComponent(q));
+    render();
+  } catch (err) {
+    $("#out").hidden = true;
+    setStatus(err.message, true);
+  }
+}
+
+const BASIS = {
+  "region": "this area's own 2013-2019 data",
+  "wider area": "the wider area around it (few fires here)",
+  "world": "the worldwide average (very few fires here)"
+};
+
+function render(){
+  const d = DATA, rows = d.calendar, ok = rows.filter(r => r.count != null);
+  $("#out").hidden = false;
+  $("#status").innerHTML = `<span class="place">${esc(d.place)}</span> \u00b7 ${esc(d.sub)}`;
+  $("#status").className = "";
+
+  // tiles
+  const last = ok[ok.length - 1];
+  let top = ok.reduce((a, r) => (r.vs_median != null && r.vs_median > (a ? a.vs_median : 0)) ? r : a, null);
+  $("#tiles").innerHTML = [
+    ["Latest month in the data", last ? mName(last.month) : "\u2013",
+      last ? `${fmt(last.count)} hotspots` + (last.vs_median != null ? `, ${fx(last.vs_median)} the usual ${FULL[+last.month.slice(5)-1]} (median ${fmt(last.median)})` : "") : ""],
+    ["Biggest burst", top ? mName(top.month) : "\u2013",
+      top ? `${fx(top.vs_median)} the usual ${FULL[+top.month.slice(5)-1]} \u00b7 ${fmt(top.count)} hotspots` : ""],
+    ["Record", `${ok.length} months`,
+      `${ok[0].month} to ${last.month}`]
+  ].concat(currentTile(d.current_month)).map(t => `<div class="tile"><div class="k">${t[0]}</div><div class="v">${t[1]}</div><div class="s">${t[2]}</div></div>`).join("");
+
+  drawHeatmap();
+
+  const est = rows.some(r => r.estimated);
+  $("#notes").innerHTML = [
+    "A hotspot is one satellite fire detection. Counts are in <b>VIIRS-equivalent</b> hotspots: VIIRS (375 m) sees more small fires than MODIS (1 km), so MODIS counts are multiplied by a factor measured where both satellites overlap (2013-2019).",
+    `Conversion factor here: <b>${d.ratio.toFixed(2)}</b> VIIRS hotspots per MODIS hotspot, from ${BASIS[d.ratio_basis] || d.ratio_basis} (${d.overlap_months} overlap months).`,
+    "Hatched months are <b>estimated</b> from MODIS only: VIIRS did not exist before 2012, and a recent month stays hatched until its VIIRS data has arrived. Treat estimates as approximate (roughly \u00b120-30% per month).",
+    "\u201cUsual\u201d is the median of the same calendar month across all years shown. A \u25b2 marks months at least 1.5\u00d7 their usual level.",
+    "Grey dashed cells have no complete data yet. They are never shown as zero.",
+    "\u25cf Provisional months use near-real-time satellite data, which NASA processes again later, so their counts can still change slightly."
+  ].map(x => `<li>${x}</li>`).join("");
+}
+
+function currentTile(c){
+  if (!c) return [];
+  const name = FULL[+c.month.slice(5)-1];
+  const thr = new Date(c.through + "T00:00:00Z");
+  let sub = `1\u2013${thr.getUTCDate()} ${MONTHS[thr.getUTCMonth()]}${c.estimated ? ", estimated from MODIS" : ""}.`;
+  if (c.projected_vs_median != null) sub += ` At this pace: about ${fmt(c.projected)} for the whole month, ${fx(c.projected_vs_median)} the usual ${name} (rough guess).`;
+  return [[`${name} ${c.month.slice(0,4)} so far`, `${fmt(c.count)} hotspots`, sub]];
+}
+
+function esc(s){ return s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function colorFor(r){
+  if (r.count == null) return null;
+  if (MODE === "count") {
+    const lo = DATA._lo, hi = DATA._hi;
+    const t = hi > lo ? (Math.log1p(r.count) - lo) / (hi - lo) : 0.5;
+    return ramp(VIRIDIS, t);
+  }
+  if (r.vs_median == null) return [190,190,190];
+  const t = 0.5 + Math.max(-2, Math.min(2, Math.log2(r.vs_median))) / 4;
+  return ramp(PUOR, t);
+}
+
+function drawHeatmap(){
+  const rows = DATA.calendar, byM = new Map(rows.map(r => [r.month, r]));
+  const vals = rows.filter(r => r.count != null).map(r => Math.log1p(r.count));
+  DATA._lo = Math.min(...vals); DATA._hi = Math.max(...vals);
+  const y0 = +rows[0].month.slice(0,4), y1 = +rows[rows.length-1].month.slice(0,4);
+  const years = []; for (let y = y1; y >= y0; y--) years.push(y);
+  const L = 44, T = 26, CW = 58, CH = 26, W = L + 12*CW, H = T + years.length*CH + 4;
+  let s = `<defs><pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+    <rect width="2" height="7" fill="rgba(255,255,255,.7)"/><rect x="2" width="1.2" height="7" fill="rgba(0,0,0,.45)"/></pattern></defs>`;
+  MONTHS.forEach((m, i) => s += `<text x="${L + i*CW + CW/2}" y="16" font-size="12" text-anchor="middle">${m}</text>`);
+  years.forEach((y, yi) => {
+    s += `<text x="${L-8}" y="${T + yi*CH + CH/2 + 4}" font-size="12" text-anchor="end">${y}</text>`;
+    for (let mi = 0; mi < 12; mi++) {
+      const key = `${y}-${String(mi+1).padStart(2,"0")}`, r = byM.get(key);
+      const x = L + mi*CW + 1, yy = T + yi*CH + 1, w = CW-2, h = CH-2;
+      if (!r) { s += `<rect x="${x}" y="${yy}" width="${w}" height="${h}" rx="3" fill="none" stroke="var(--line)" stroke-width=".6"/>`; continue; }
+      const c = colorFor(r), sel = SEL === key ? " sel" : "";
+      const label = r.count == null ? `${mName(key)}: no complete data yet`
+        : `${mName(key)}: ${fmt(r.count)} hotspots` + (r.vs_median != null ? `, ${fx(r.vs_median)} the usual` : "") + (r.estimated ? ", estimated" : "") + (r.provisional ? ", provisional" : "") + (r.anomaly ? ", anomaly" : "");
+      s += `<g class="cell${sel}" data-m="${key}" role="img" aria-label="${label}">`;
+      if (!c) {
+        s += `<rect class="base" x="${x}" y="${yy}" width="${w}" height="${h}" rx="3" fill="var(--empty)" stroke="var(--muted)" stroke-dasharray="3 3" stroke-width=".8"/>`;
+      } else {
+        s += `<rect class="base" x="${x}" y="${yy}" width="${w}" height="${h}" rx="3" fill="${css(c)}"/>`;
+        if (r.estimated) s += `<rect x="${x}" y="${yy}" width="${w}" height="${h}" rx="3" fill="url(#hatch)" pointer-events="none"/>`;
+        const txt = MODE === "count" ? short(r.count) : (r.vs_median != null ? fx(r.vs_median) : "\u2013");
+        s += `<text x="${x + w/2}" y="${yy + h/2 + 4}" font-size="11" text-anchor="middle" pointer-events="none" style="fill:${lum(c) > 0.55 ? "#111" : "#fff"};${r.estimated ? "paint-order:stroke;stroke:rgba(0,0,0,.35);stroke-width:2px" : ""}">${txt}</text>`;
+        if (r.anomaly) s += `<path d="M${x+w-9} ${yy+2} l7 0 l0 7 z" fill="#fff" stroke="#111" stroke-width="1" pointer-events="none"/>`;
+        if (r.provisional) s += `<circle cx="${x+7}" cy="${yy+h-7}" r="3" fill="#fff" stroke="#111" stroke-width="1" pointer-events="none"/>`;
+      }
+      s += `</g>`;
+    }
+  });
+  const svg = $("#hm");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.innerHTML = `<title id="hm-t">Calendar heatmap, ${esc(DATA.place)}</title>` + s;
+  drawLegend();
+}
+
+function drawLegend(){
+  const stops = MODE === "count" ? VIRIDIS : PUOR;
+  const grad = "linear-gradient(90deg," + stops.join(",") + ")";
+  const lo = Math.expm1(DATA._lo), hi = Math.expm1(DATA._hi);
+  const labels = MODE === "count"
+    ? `<span>${fmt(lo)}</span><div class="ramp" style="background:${grad}"></div><span>${fmt(hi)} hotspots (log scale)</span>`
+    : `<span>0.25\u00d7 usual</span><div class="ramp" style="background:${grad}"></div><span>4\u00d7 usual or more</span>`;
+  $("#legend").innerHTML = labels +
+    `<span class="key"><i style="background:repeating-linear-gradient(45deg,#fff8,#fff8 2px,#0006 2px,#0006 3px)"></i>estimated</span>` +
+    `<span class="key"><i></i>no data yet</span><span class="key">\u25b2 \u22651.5\u00d7 usual</span><span class="key">\u25cf provisional</span>`;
+}
+
+// tooltip + selection (event delegation)
+const tip = $("#tip");
+function cellData(el){ const g = el.closest(".cell"); return g ? DATA.calendar.find(r => r.month === g.dataset.m) : null; }
+$("#hm").addEventListener("pointermove", e => {
+  const r = cellData(e.target);
+  if (!r) { tip.style.opacity = 0; return; }
+  let h = `<b>${mName(r.month)}</b>`;
+  if (r.count == null) h += "No complete data yet";
+  else {
+    h += `${fmt(r.count)} hotspots`;
+    if (r.vs_median != null) h += `<br>${fx(r.vs_median)} the usual (median ${fmt(r.median)})`;
+    if (r.anomaly) h += "<br>\u25b2 Unusually active";
+    if (r.estimated) h += "<br>Estimated from MODIS";
+    if (r.provisional) h += "<br>\u25cf Provisional (near-real-time data)";
+  }
+  tip.innerHTML = h;
+  const x = Math.min(e.clientX + 14, innerWidth - 276), y = Math.min(e.clientY + 14, innerHeight - 110);
+  tip.style.left = x + "px"; tip.style.top = y + "px"; tip.style.opacity = 1;
+});
+$("#hm").addEventListener("pointerleave", () => tip.style.opacity = 0);
+$("#hm").addEventListener("click", e => {
+  const r = cellData(e.target); if (!r) return;
+  SEL = r.month; drawHeatmap(); showDetail(r);
+});
+
+function showDetail(r){
+  let h = `<b>${mName(r.month)}</b> \u00b7 `;
+  h += r.count == null ? "no complete data yet." : `${fmt(r.count)} hotspots` + (r.vs_median != null ? ` (${fx(r.vs_median)} the usual ${FULL[+r.month.slice(5)-1]}; median ${fmt(r.median)})` : "") + ".";
+  if (r.count != null) h += ` Individual hotspots: <a href="https://firms.modaps.eosdis.nasa.gov/download/" target="_blank" rel="noopener">NASA FIRMS archive download</a>.`;
+  $("#detail").innerHTML = h;
+}
+
+function setMode(m){
+  MODE = m;
+  $("#m-count").setAttribute("aria-pressed", m === "count");
+  $("#m-ratio").setAttribute("aria-pressed", m === "ratio");
+  if (DATA) drawHeatmap();
+}
+$("#m-count").onclick = () => setMode("count");
+$("#m-ratio").onclick = () => setMode("ratio");
+
+$("#csv").onclick = () => {
+  const head = "month,hotspots_viirs_equivalent,estimated,usual_median,ratio_to_usual,anomaly\n";
+  const body = DATA.calendar.map(r => [r.month, r.count ?? "", r.estimated ?? "", r.median ?? "", r.vs_median ?? "", r.anomaly ? 1 : 0].join(",")).join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([head + body + "\n"], { type: "text/csv" }));
+  a.download = "fire_calendar.csv"; a.click(); URL.revokeObjectURL(a.href);
+};
+
+$("#f").addEventListener("submit", e => { e.preventDefault(); search($("#q").value); });
+document.querySelectorAll(".chips button").forEach(b => b.onclick = () => search(b.dataset.q));
+let sugT;
+$("#q").addEventListener("input", () => {
+  clearTimeout(sugT);
+  sugT = setTimeout(async () => {
+    const list = await FC.suggest($("#q").value).catch(() => []);
+    $("#dl").innerHTML = list.map(x => `<option value="${esc(x)}">`).join("");
+  }, 150);
+});
+search(new URLSearchParams(location.search).get("q") || "California");
+</script>
+</body>
+</html>

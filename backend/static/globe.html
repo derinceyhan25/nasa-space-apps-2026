@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fire Calendar · Globe</title>
+<style>
+:root{
+  --ink:#f3efe8; --muted:#b9b3a8; --panel:rgba(16,14,12,.88); --line:rgba(255,255,255,.16);
+  --accent:#fb923c; --focus:#93c5fd;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:#05060a;color:var(--ink);overflow:hidden;
+  font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+#globe{position:fixed;inset:0}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.sr{position:absolute;left:-9999px}
+.skip:focus{left:12px;top:12px;z-index:30;background:#000;padding:8px 12px;border-radius:6px}
+
+.top{position:fixed;z-index:5;left:16px;right:16px;top:14px;display:flex;gap:14px;align-items:flex-start;
+  flex-wrap:wrap;pointer-events:none}
+.top > *{pointer-events:auto}
+.brand h1{margin:0;font-size:20px;letter-spacing:-.01em}
+.brand p{margin:0;color:var(--muted);font-size:13px;max-width:30ch}
+form{flex:1 1 320px;max-width:560px;display:flex;gap:8px}
+input[type=search]{flex:1;min-width:0;padding:11px 14px;font:inherit;color:var(--ink);background:var(--panel);
+  border:1px solid var(--line);border-radius:10px;backdrop-filter:blur(6px)}
+input::placeholder{color:#8f897f}
+button{font:inherit;cursor:pointer;color:var(--ink);background:var(--panel);border:1px solid var(--line);
+  border-radius:10px;padding:10px 14px;backdrop-filter:blur(6px)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#1a0f05;font-weight:650}
+button:hover{filter:brightness(1.12)}
+.hint{position:fixed;z-index:4;left:50%;transform:translateX(-50%);bottom:112px;color:var(--muted);font-size:13px;
+  background:var(--panel);border:1px solid var(--line);padding:4px 12px;border-radius:999px;pointer-events:none;
+  transition:opacity .4s}
+
+aside{position:fixed;z-index:6;right:16px;top:78px;bottom:104px;width:min(410px,calc(100vw - 32px));overflow:auto;
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;backdrop-filter:blur(8px);
+  transform:translateX(calc(100% + 24px));visibility:hidden;transition:transform .35s ease,visibility 0s .35s}
+aside.open{transform:none;visibility:visible;transition:transform .35s ease}
+aside h2{margin:0 24px 2px 0;font-size:20px;line-height:1.25}
+aside .sub{margin:0 0 12px;color:var(--muted);font-size:13px}
+aside .x{position:absolute;right:10px;top:10px;padding:2px 9px;border-radius:8px}
+.fact{border-top:1px solid var(--line);padding:10px 0}
+.fact .k{font-size:11.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.fact .v{font-size:19px;font-weight:650}
+.fact .s{font-size:13px;color:var(--muted)}
+aside h3{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:14px 0 6px;font-weight:600}
+aside svg{width:100%;height:auto;display:block}
+aside svg text{fill:var(--muted);font-family:inherit}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 6px}
+.btns a,.btns button{display:inline-block;text-decoration:none;font-size:14px;padding:8px 12px;border-radius:9px;
+  border:1px solid var(--line);color:var(--ink);background:rgba(255,255,255,.06)}
+.btns a.go{background:var(--accent);border-color:var(--accent);color:#1a0f05;font-weight:650}
+.note{font-size:12.5px;color:var(--muted);margin:8px 0 0}
+.err{color:#fca5a5}
+
+.bar{position:fixed;z-index:5;left:16px;right:16px;bottom:14px;display:flex;gap:14px;align-items:center;
+  flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 14px;
+  backdrop-filter:blur(8px)}
+.bar .play{width:42px;height:42px;padding:0;border-radius:50%;font-size:16px;flex:none}
+.tl{flex:1 1 260px;min-width:0}
+.tl .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.tl .month{font-weight:650;font-size:16px}
+.tl .total{color:var(--muted);font-size:13px}
+input[type=range]{width:100%;accent-color:var(--accent);margin:4px 0 0}
+.legend{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);flex:none}
+.ramp{width:150px;height:10px;border-radius:3px;border:1px solid var(--line)}
+.views{display:flex;flex:none;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.views button{border:0;border-radius:0;padding:7px 12px;font-size:13px;background:transparent;backdrop-filter:none}
+.views button + button{border-left:1px solid var(--line)}
+.views button[aria-pressed=true]{background:var(--accent);color:#1a0f05;font-weight:650}
+.credit{position:fixed;z-index:3;right:18px;bottom:2px;font-size:10.5px;color:#7d776d}
+@media (max-width:700px){
+  .brand p{display:none}
+  aside{top:auto;left:16px;right:16px;bottom:120px;width:auto;max-height:52vh;transform:translateY(130%)}
+  aside.open{transform:none}
+  .legend{display:none}
+  .hint{display:none}
+}
+</style>
+</head>
+<body>
+<a class="sr skip" href="/calendar">Skip the globe: go to the calendar page</a>
+<div id="globe" aria-hidden="true"></div>
+
+<div class="top">
+  <div class="brand">
+    <h1>Fire Calendar</h1>
+    <p>Two satellites, 25 years of fire detections, any place on Earth.</p>
+  </div>
+  <form id="f" role="search">
+    <input id="q" type="search" placeholder="Search a city, a country or lat,lon" aria-label="Place to search" autocomplete="off">
+    <button class="primary" type="submit">Go</button>
+  </form>
+</div>
+
+<div class="hint" id="hint">Drag to turn the globe. Click anywhere on it to see that place.</div>
+
+<aside id="panel" aria-live="polite" aria-label="Place details">
+  <button class="x" id="close" aria-label="Close panel">✕</button>
+  <div id="pbody"></div>
+</aside>
+
+<div class="bar">
+  <button class="play" id="play" aria-label="Play the time-lapse">▶</button>
+  <div class="tl">
+    <div class="row"><span class="month" id="mlabel">Loading…</span><span class="total" id="mtotal"></span></div>
+    <input type="range" id="slider" min="0" max="0" value="0" step="1" aria-label="Month" disabled>
+  </div>
+  <div class="views" role="group" aria-label="Map style">
+    <button type="button" data-v="flat" aria-pressed="true" title="Flat coloured cells lying on the surface">Flat</button>
+    <button type="button" data-v="columns" aria-pressed="false" title="3D columns">Columns</button>
+  </div>
+  <div class="legend" aria-hidden="true"><span>few</span><div class="ramp" id="gramp"></div><span>many fire detections per 1° cell</span></div>
+</div>
+<div class="credit">Globe texture: NASA Blue Marble. Fire detections: NASA FIRMS (MODIS, VIIRS S-NPP).</div>
+
+<noscript><p style="position:fixed;top:80px;left:16px">This page needs JavaScript. The <a href="/calendar">calendar page</a> shows the same data.</p></noscript>
+
+<script src="https://cdn.jsdelivr.net/npm/globe.gl@2.41.1/dist/globe.gl.min.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const IMG = "https://cdn.jsdelivr.net/npm/three-globe@2.45.2/example/img/";
+const FULL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+// perceptually uniform, colour-blind safe ramps
+const FIRE = ["#000004","#2a0b55","#6a176e","#a52c60","#dd513a","#f98e09","#fcca3d","#fcffa4"];
+const VIRIDIS = ["#440154","#472d7b","#3b528b","#2c728e","#21918c","#28ae80","#5ec962","#addc30","#fde725"];
+const NMAX = 30000;  // hotspots per 1-degree cell at the top of the colour scale
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const hex = h => [1,3,5].map(i => parseInt(h.slice(i, i+2), 16));
+function ramp(stops, t){
+  t = Math.max(0, Math.min(1, t));
+  const x = t * (stops.length - 1), i = Math.min(Math.floor(x), stops.length - 2), f = x - i;
+  const a = hex(stops[i]), b = hex(stops[i+1]);
+  return a.map((v, k) => Math.round(v + (b[k] - v) * f));
+}
+const css = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+const lum = c => (0.2126*c[0] + 0.7152*c[1] + 0.0722*c[2]) / 255;
+const fmt = n => Math.round(n).toLocaleString("en-US");
+const fx = r => r >= 10 ? Math.round(r)+"×" : r.toFixed(1)+"×";
+const mName = m => `${FULL[+m.slice(5)-1]} ${m.slice(0,4)}`;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const tOf = n => Math.min(1, Math.log10(Math.max(n, 1)) / Math.log10(NMAX));
+
+async function getJSON(url){
+  const r = await fetch(url);
+  let body = null; try { body = await r.json(); } catch {}
+  if (!r.ok) throw new Error(body && body.detail ? body.detail : `Request failed (${r.status})`);
+  return body;
+}
+
+$("#gramp").style.background = "linear-gradient(90deg," + FIRE.join(",") + ")";
+
+// ---------------------------------------------------------------- globe
+const globe = Globe({ animateIn: !reduce })($("#globe"))
+  .width(innerWidth).height(innerHeight)
+  .globeImageUrl(IMG + "earth-blue-marble.jpg")
+  .bumpImageUrl(IMG + "earth-topology.png")
+  .backgroundImageUrl(IMG + "night-sky.png")
+  .atmosphereColor("#7cc4ff").atmosphereAltitude(0.18)
+  .pointLat("lat").pointLng("lng")
+  .pointAltitude(d => mode === "columns" ? 0.003 + 0.07 * tOf(d.n) ** 2 : 0.0015)
+  .pointRadius(d => mode === "columns" ? 0.36 : 0.56).pointResolution(6).pointsMerge(true)
+  .pointColor(d => css(ramp(FIRE, 0.25 + 0.75 * tOf(d.n))))
+  .ringColor(() => t => `rgba(147,197,253,${1 - t})`)
+  .ringMaxRadius(3.2).ringPropagationSpeed(2).ringRepeatPeriod(1500)
+  .onGlobeClick(({ lat, lng }) => search(`${lat.toFixed(2)}, ${lng.toFixed(2)}`));
+globe.pointOfView({ lat: 25, lng: 10, altitude: 2.4 });
+const ctl = globe.controls();
+ctl.autoRotate = !reduce; ctl.autoRotateSpeed = 0.45;
+ctl.addEventListener("start", () => { ctl.autoRotate = false; $("#hint").style.opacity = 0; });
+addEventListener("resize", () => globe.width(innerWidth).height(innerHeight));
+
+// ---------------------------------------------------------------- time-lapse
+let MONTHS = [], idx = 0, playing = false, lastCells = [];
+let mode = "flat";
+try { const v = localStorage.getItem("fc_view"); if (["flat","columns"].includes(v)) mode = v; } catch {}
+function draw(){
+  globe.pointsData(lastCells);
+  document.querySelectorAll(".views button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === mode)));
+}
+document.querySelectorAll(".views button").forEach(b => b.onclick = () => {
+  mode = b.dataset.v; try { localStorage.setItem("fc_view", mode); } catch {}
+  draw();
+});
+const cache = new Map();
+const slider = $("#slider");
+
+async function loadMonth(m){
+  if (!cache.has(m)) cache.set(m, getJSON("/api/world/globe?month=" + m).then(r => r.cells));
+  return cache.get(m);
+}
+async function show(i){
+  idx = i; slider.value = i;
+  const m = MONTHS[i];
+  $("#mlabel").textContent = mName(m);
+  try {
+    const cells = await loadMonth(m);
+    if (i !== idx) return;
+    lastCells = cells; draw();
+    $("#mtotal").textContent = fmt(cells.reduce((a, c) => a + c.n, 0)) + " fire detections worldwide (VIIRS)";
+  } catch (e) { cache.delete(m); $("#mtotal").textContent = e.message; }
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function play(){
+  playing = true; $("#play").textContent = "❚❚"; $("#play").setAttribute("aria-label", "Pause the time-lapse");
+  ctl.autoRotate = false;
+  while (playing) {
+    const next = idx + 1 >= MONTHS.length ? 0 : idx + 1;
+    loadMonth(MONTHS[Math.min(next + 1, MONTHS.length - 1)]).catch(() => {});  // prefetch
+    await show(next);
+    await sleep(700);
+  }
+}
+function pause(){ playing = false; $("#play").textContent = "▶"; $("#play").setAttribute("aria-label", "Play the time-lapse"); }
+$("#play").onclick = () => playing ? pause() : play();
+slider.addEventListener("input", () => { pause(); show(+slider.value); });
+
+async function initMonths(){
+  try {
+    MONTHS = (await getJSON("/api/world/globe/months")).months;
+    if (!MONTHS.length) { $("#mlabel").textContent = "World data is still downloading"; return; }
+    slider.max = MONTHS.length - 1; slider.disabled = false;
+    await show(MONTHS.length - 1);
+  } catch (e) { $("#mlabel").textContent = "Could not load the world data"; $("#mtotal").textContent = e.message; }
+}
+
+// ---------------------------------------------------------------- place panel
+const panel = $("#panel"), body = $("#pbody");
+$("#close").onclick = () => { panel.classList.remove("open"); globe.ringsData([]); };
+
+function showPanel(html){ body.innerHTML = html; panel.classList.add("open"); }
+
+function altFor(b){
+  const span = Math.max(b[2] - b[0], b[3] - b[1]);
+  return Math.max(0.35, Math.min(2.4, 0.25 + span / 55));
+}
+
+async function search(q){
+  q = q.trim(); if (!q) return;
+  $("#q").value = q; pause(); ctl.autoRotate = false; $("#hint").style.opacity = 0;
+  showPanel(`<p class="sub">Searching…</p>`);
+  try {
+    const g = await getJSON("/api/geocode?q=" + encodeURIComponent(q));
+    globe.pointOfView({ lat: g.lat, lng: g.lon, altitude: altFor(g.bbox) }, reduce ? 0 : 1600);
+    globe.ringsData([{ lat: g.lat, lng: g.lon }]);
+    showPanel(`<h2>${esc(g.name.split(",").slice(0,2).join(","))}</h2><p class="sub">Loading the calendar…</p>`);
+    const [w, s, e, n] = g.bbox;
+    const cal = await getJSON(`/api/world/calendar?west=${w}&south=${s}&east=${e}&north=${n}`);
+    history.replaceState(null, "", "?q=" + encodeURIComponent(q));
+    renderPanel(q, g, cal);
+  } catch (err) {
+    showPanel(`<p class="err">${esc(err.message)}</p><p class="note">Try another place, or coordinates like <b>38.4, 27.1</b>.</p>`);
+  }
+}
+
+function renderPanel(q, g, cal){
+  const rows = cal.calendar, ok = rows.filter(r => r.count != null), last = ok[ok.length - 1];
+  const top = ok.reduce((a, r) => (r.vs_median != null && r.vs_median > (a ? a.vs_median : 0)) ? r : a, null);
+  const cm = cal.current_month;
+  const [w, s, e, n] = g.bbox;
+  let facts = "";
+  if (last) facts += `<div class="fact"><div class="k">Latest full month</div><div class="v">${mName(last.month)}: ${fmt(last.count)} hotspots</div>` +
+    `<div class="s">${last.vs_median != null ? `${fx(last.vs_median)} the usual ${FULL[+last.month.slice(5)-1]}` : ""}${last.provisional ? " · provisional data" : ""}</div></div>`;
+  if (cm) facts += `<div class="fact"><div class="k">${FULL[+cm.month.slice(5)-1]} so far (to ${+cm.through.slice(8)} ${MON[+cm.through.slice(5,7)-1]})</div><div class="v">${fmt(cm.count)} hotspots</div>` +
+    `<div class="s">${cm.projected_vs_median != null ? `At this pace ${fx(cm.projected_vs_median)} the usual month (rough guess)` : ""}</div></div>`;
+  if (top) facts += `<div class="fact"><div class="k">Biggest burst on record</div><div class="v">${mName(top.month)}: ${fx(top.vs_median)} the usual</div>` +
+    `<div class="s">${fmt(top.count)} hotspots</div></div>`;
+
+  showPanel(
+    `<h2>${esc(g.name.split(",").slice(0,2).join(","))}</h2>` +
+    `<p class="sub">Box ${s.toFixed(2)}° to ${n.toFixed(2)}° N, ${w.toFixed(2)}° to ${e.toFixed(2)}° E · ${ok.length} months of data</p>` +
+    facts + `<h3>Last 6 years, month by month</h3>` + mini(rows) +
+    `<div class="btns"><a class="go" href="/calendar?q=${encodeURIComponent(q)}">Open the full calendar →</a>` +
+    `<button type="button" id="csv">Download CSV</button></div>` +
+    `<p class="note">Hotspots are VIIRS-equivalent counts: MODIS is converted with a factor of ${cal.ratio.toFixed(2)} measured where both satellites overlap. ` +
+    `Brighter cell = more fires. Click “Open the full calendar” for all years, anomalies and monthly downloads.</p>`
+  );
+  $("#csv").onclick = () => {
+    const head = "month,hotspots_viirs_equivalent,estimated,provisional,usual_median,ratio_to_usual,anomaly\n";
+    const csv = rows.map(r => [r.month, r.count ?? "", r.estimated ?? "", r.provisional ?? "", r.median ?? "", r.vs_median ?? "", r.anomaly ? 1 : 0].join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([head + csv + "\n"], { type: "text/csv" }));
+    a.download = "fire_calendar.csv"; a.click(); URL.revokeObjectURL(a.href);
+  };
+}
+
+function mini(rows){
+  const byM = new Map(rows.map(r => [r.month, r]));
+  const lastY = +rows[rows.length - 1].month.slice(0, 4), years = [];
+  for (let y = lastY; y > lastY - 6; y--) years.push(y);
+  const vals = rows.filter(r => r.count != null && +r.month.slice(0,4) > lastY - 6).map(r => Math.log1p(r.count));
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  const L = 34, CW = 28, CH = 17, W = L + 12 * CW, H = 16 + years.length * CH;
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Mini calendar of the last six years">`;
+  MON.forEach((m, i) => s += `<text x="${L + i*CW + CW/2}" y="10" font-size="9" text-anchor="middle">${m[0]}</text>`);
+  years.forEach((y, yi) => {
+    s += `<text x="${L - 5}" y="${16 + yi*CH + 12}" font-size="10" text-anchor="end">${y}</text>`;
+    for (let mi = 0; mi < 12; mi++) {
+      const key = `${y}-${String(mi + 1).padStart(2, "0")}`, r = byM.get(key), x = L + mi*CW + 1, yy = 16 + yi*CH + 1;
+      if (!r || r.count == null) { s += `<rect x="${x}" y="${yy}" width="${CW-2}" height="${CH-2}" rx="2" fill="none" stroke="rgba(255,255,255,.18)" stroke-dasharray="2 2"/>`; continue; }
+      const c = ramp(VIRIDIS, hi > lo ? (Math.log1p(r.count) - lo) / (hi - lo) : .5);
+      s += `<rect x="${x}" y="${yy}" width="${CW-2}" height="${CH-2}" rx="2" fill="${css(c)}"${r.estimated ? ' stroke="#fff" stroke-dasharray="3 2" stroke-width=".8"' : ""}>` +
+           `<title>${mName(key)}: ${fmt(r.count)} hotspots${r.vs_median != null ? `, ${fx(r.vs_median)} the usual` : ""}${r.anomaly ? " (unusually active)" : ""}</title></rect>`;
+      if (r.anomaly) s += `<path d="M${x+CW-9} ${yy+1} l6 0 l0 6 z" fill="#fff" stroke="#111" stroke-width=".8"/>`;
+    }
+  });
+  return s + `</svg>`;
+}
+
+$("#f").addEventListener("submit", e => { e.preventDefault(); search($("#q").value); });
+initMonths();
+const q0 = new URLSearchParams(location.search).get("q");
+if (q0) search(q0);
+</script>
+</body>
+</html>
