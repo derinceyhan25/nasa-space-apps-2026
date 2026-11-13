@@ -182,7 +182,8 @@ function render(){
     "Hatched months are <b>estimated</b> from MODIS only: VIIRS did not exist before 2012, and a recent month stays hatched until its VIIRS data has arrived. Treat estimates as approximate (roughly \u00b120-30% per month).",
     "\u201cUsual\u201d is the median of the same calendar month across all years shown. A \u25b2 marks months at least 1.5\u00d7 their usual level.",
     "Grey dashed cells have no complete data yet. They are never shown as zero.",
-    "\u25cf Provisional months use near-real-time satellite data, which NASA processes again later, so their counts can still change slightly."
+    "\u25cf Provisional months use near-real-time satellite data, which NASA processes again later, so their counts can still change slightly.",
+    "We acknowledge the use of data and/or imagery from NASA's Fire Information for Resource Management System (FIRMS) (<a href=\"https://earthdata.nasa.gov/firms\">https://earthdata.nasa.gov/firms</a>), part of NASA's Land, Atmosphere Near real-time Capability for Earth observations (LANCE) (<a href=\"https://earthdata.nasa.gov/lance\">https://earthdata.nasa.gov/lance</a>) and NASA's Earth Science Data and Information System (ESDIS). Boundaries: Natural Earth (public domain)."
   ].map(x => `<li>${x}</li>`).join("");
 }
 
@@ -323,3 +324,4 @@ search(new URLSearchParams(location.search).get("q") || "California");
 </script>
 </body>
 </html>
+
